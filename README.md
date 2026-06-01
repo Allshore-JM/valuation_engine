@@ -54,6 +54,24 @@ tests/           # import + invariant + golden-case tests
 
 (Or install the package into the venv editable: `.\.venv\Scripts\python.exe -m pip install -e ".[dev]"`.)
 
+## Web app (Streamlit)
+
+A point-and-click UI over the engine: pick a ticker, adjust every assumption with sliders,
+and see the value-vs-price chart, sensitivity, scenarios, Monte Carlo, reverse-DCF, and a
+downloadable report. The engine code is untouched — `streamlit_app.py` is a thin layer on top.
+
+**Run locally:**
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[web]"            # once — installs Streamlit
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py     # opens http://localhost:8501
+```
+
+**Deploy (free, auto-redeploys on every `git push`):** sign in at
+[share.streamlit.io](https://share.streamlit.io) with GitHub → **New app** → pick this repo,
+branch `main`, main file `streamlit_app.py` → **Deploy**. Dependencies are read from
+`requirements.txt`.
+
 ## Methodology guardrails (enforced in code, not just docs)
 
 - **Match cash flow to discount rate** — FCFF ↔ cost of capital; FCFE / dividends ↔ cost of equity. The two should converge.

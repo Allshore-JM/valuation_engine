@@ -27,6 +27,7 @@ class MonteCarloResult(BaseModel):
     price: float | None = None
     prob_value_above_price: float | None = None
     prob_positive: float = 1.0
+    samples: list[float] | None = None
 
 
 def monte_carlo(
@@ -41,6 +42,7 @@ def monte_carlo(
     sigma_stable_growth: float = 0.005,
     sigma_phase_growth: float = 0.03,
     sigma_tax: float = 0.03,
+    keep_samples: bool = False,
 ) -> MonteCarloResult:
     rng = np.random.default_rng(seed)
     price = price if price is not None else company.price
@@ -86,4 +88,5 @@ def monte_carlo(
         price=price,
         prob_value_above_price=float((arr > price).mean()) if price else None,
         prob_positive=float((arr > 0).mean()),
+        samples=arr.tolist() if keep_samples else None,
     )

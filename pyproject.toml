@@ -24,6 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+web = ["streamlit>=1.49"]
 
 [project.scripts]
 valuate = "valuation_engine.cli:main"

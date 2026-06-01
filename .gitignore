@@ -28,3 +28,5 @@ data_dump/
 Thumbs.db
 .vscode/
 .idea/
+# local preview / launch config (machine-specific paths)
+.claude/

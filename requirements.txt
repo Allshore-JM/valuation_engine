@@ -1,0 +1,11 @@
+# Runtime dependencies for the Streamlit Community Cloud deployment.
+# (streamlit_app.py adds ./src to sys.path, so the package itself doesn't need installing.)
+# Mirrors pyproject's runtime deps, minus typer (the web UI doesn't use the CLI), plus streamlit.
+streamlit==1.58.0
+altair>=5.0
+pydantic>=2.7
+pandas>=2.2
+numpy>=1.26
+numpy-financial>=1.0
+yfinance==1.4.1
+requests-cache>=1.2
