@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "valuation_engine"
+version = "0.1.0"
+description = "Damodaran-style equity valuation engine (intrinsic DCF + relative valuation). Outputs are model estimates, not investment advice."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "joshm" }]
+keywords = ["valuation", "dcf", "fcff", "fcfe", "ddm", "equity", "finance", "damodaran"]
+
+dependencies = [
+    "pydantic>=2.7",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "numpy-financial>=1.0",
+    "yfinance==1.4.1",        # PINNED: unofficial Yahoo scraper; can break on minor bumps
+    "requests-cache>=1.2",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+valuate = "valuation_engine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "integration: hits the live network (yfinance); skipped by default, run with -m integration",
+]

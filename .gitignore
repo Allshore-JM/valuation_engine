@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.sqlite          # requests-cache sqlite backend
+cache/
+.cache/
+
+# Ad-hoc data dumps (recorded test fixtures ARE tracked)
+data_dump/
+*.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
