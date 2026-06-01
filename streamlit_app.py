@@ -3,20 +3,24 @@
 Run locally:   streamlit run streamlit_app.py
 Deployed on:   Streamlit Community Cloud (auto-redeploys from the GitHub repo on push)
 
-The engine code is untouched; this file is just a thin UI on top of it.
+The engine code is untouched; this file is just a thin UI on top of it. All the
+plain-English explanations live in help_text.py.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# Make src/ importable whether or not the package is pip-installed (e.g. on Streamlit Cloud).
+# Make src/ (the package) and this folder (help_text.py) importable, whether or not the
+# package is pip-installed — e.g. on Streamlit Cloud.
 sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent))
 
-import altair as alt  # noqa: E402  (after sys.path tweak)
+import altair as alt  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+import help_text as txt  # noqa: E402
 from valuation_engine.config import all_staleness_warnings  # noqa: E402
 from valuation_engine.data import FixtureProvider, YFinanceProvider  # noqa: E402
 from valuation_engine.engines import baseline_assumptions  # noqa: E402
@@ -54,31 +58,32 @@ def fixture_tickers() -> list[str]:
 # ----------------------------------------------------------------------------- header
 st.title("📈 Equity Valuation Engine")
 st.caption(
-    "Intrinsic (DCF: FCFF · FCFE · DDM) and relative valuation, reconciled against the "
-    "market price — built on Damodaran's *Investment Valuation*."
+    "Estimate what a company is *worth* (intrinsic value) and compare it to what it *costs* "
+    "(market price) — built on Damodaran's *Investment Valuation*."
 )
 st.warning(
-    "**Not investment advice.** Every number is a model estimate driven by the assumptions "
-    "in the sidebar. Garbage in, garbage out — change an assumption and the answer changes."
+    "**Not investment advice.** Every number is a model estimate driven by the assumptions in "
+    "the sidebar. Garbage in, garbage out — change an assumption and the answer changes."
 )
+with st.expander("📖 **New here? How this tool works — start here**", expanded=False):
+    st.markdown(txt.INTRO)
 for _w in all_staleness_warnings():
-    st.info("🕓 " + _w)
+    st.info(_w, icon="🕓")
 
 # --------------------------------------------------------------------- sidebar: inputs
 with st.sidebar:
     st.header("1 · Company")
-    source = st.radio("Data source", [OFFLINE, LIVE], index=0,
-                      help="Offline replays bundled fixtures instantly with no network. "
-                           "Live fetches any ticker from Yahoo (can be slow / rate-limited).")
+    source = st.radio("Data source", [OFFLINE, LIVE], index=0, help=txt.DATA_SOURCE)
     if source == OFFLINE:
         available = fixture_tickers()
-        ticker = st.selectbox("Ticker", [t for t in ("AAPL", "KO") if t in available] or available)
+        ticker = st.selectbox("Ticker", [t for t in ("AAPL", "KO") if t in available] or available,
+                              help=txt.TICKER)
         peer_opts = [t for t in available if t != ticker]
-        peers = st.multiselect("Peers (for relative valuation)", peer_opts,
+        peers = st.multiselect("Peers (for relative valuation)", peer_opts, help=txt.PEERS,
                                default=[p for p in DEFAULT_PEERS.get(ticker, []) if p in peer_opts])
     else:
-        ticker = (st.text_input("Ticker", value="AAPL") or "").strip().upper()
-        peers_raw = st.text_input("Peers (comma-separated)", value="MSFT,NVDA,ORCL,CRM,AVGO")
+        ticker = (st.text_input("Ticker", value="AAPL", help=txt.TICKER) or "").strip().upper()
+        peers_raw = st.text_input("Peers (comma-separated)", value="MSFT,NVDA,ORCL,CRM,AVGO", help=txt.PEERS)
         peers = [p.strip().upper() for p in peers_raw.split(",") if p.strip()]
 
 if not ticker:
@@ -92,21 +97,28 @@ except Exception as exc:  # noqa: BLE001
 
 with st.sidebar:
     st.header("2 · Assumptions")
-    st.caption("Suggested from the firm's own fundamentals — adjust any knob:")
+    st.caption("Each knob starts at a value estimated from the firm's own history. "
+               "Hover the **?** on any slider for what it means and how it moves the answer.")
     rf = float(base.risk_free_rate or 0.043)
-    wacc = st.slider("WACC — FCFF discount", 0.03, 0.20, float(base.cost_of_capital or 0.09), 0.001, format="%.3f")
-    ke = st.slider("Cost of equity — FCFE/DDM discount", 0.03, 0.25, float(base.cost_of_equity or 0.09), 0.001, format="%.3f")
-    high_growth = st.slider("High-growth rate (5y)", -0.05, 0.40, float(base.phases[0].growth_rate or 0.08), 0.005, format="%.3f")
+    wacc = st.slider("WACC — FCFF discount rate", 0.03, 0.20, float(base.cost_of_capital or 0.09),
+                     0.001, format="%.3f", help=txt.WACC)
+    ke = st.slider("Cost of equity — FCFE/DDM discount rate", 0.03, 0.25, float(base.cost_of_equity or 0.09),
+                   0.001, format="%.3f", help=txt.KE)
+    high_growth = st.slider("High-growth rate (first 5 years)", -0.05, 0.40, float(base.phases[0].growth_rate or 0.08),
+                            0.005, format="%.3f", help=txt.HIGH_GROWTH)
     sg_max = max(0.001, min(rf, wacc - 0.001, ke - 0.001))
     stable_growth = st.slider("Stable (perpetuity) growth", 0.0, float(sg_max),
                               float(min(base.stable_growth_rate or 0.02, sg_max)), 0.001, format="%.3f",
-                              help="Capped at the risk-free rate and below the discount rate (long-run economy growth).")
-    tax = st.slider("Tax rate", 0.0, 0.40, float(base.marginal_tax_rate or 0.21), 0.01, format="%.2f")
+                              help=txt.STABLE_GROWTH)
+    tax = st.slider("Tax rate", 0.0, 0.40, float(base.marginal_tax_rate or 0.21), 0.01, format="%.2f", help=txt.TAX)
     with st.expander("Advanced"):
-        stable_roc = st.slider("Stable ROC", 0.03, 0.30,
-                               float(base.stable_return_on_capital or base.cost_of_capital or 0.09), 0.005, format="%.3f")
-        st.caption(f"Baseline derived from rf = {rf:.2%}, ERP = {float(base.equity_risk_premium or 0):.2%}, "
-                   f"beta = {float(base.beta or 0):.2f}.")
+        stable_roc = st.slider("Stable return on capital", 0.03, 0.30,
+                               float(base.stable_return_on_capital or base.cost_of_capital or 0.09),
+                               0.005, format="%.3f", help=txt.STABLE_ROC)
+        st.caption("These three feed the suggested WACC and cost of equity above:")
+        st.metric("Risk-free rate", f"{rf:.2%}", help=txt.RF)
+        st.metric("Equity risk premium", f"{float(base.equity_risk_premium or 0):.2%}", help=txt.ERP)
+        st.metric("Beta", f"{float(base.beta or 0):.2f}", help=txt.BETA)
 
 # Build the working assumptions from the sliders.
 assumptions = base.model_copy(update={
@@ -137,11 +149,11 @@ price = company.price
 # --------------------------------------------------------------------------- headline
 st.subheader(f"{company.name or ticker}  ·  {company.sector or ''}")
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Market price", f"{price:,.2f}" if price else "—")
-c2.metric("Intrinsic median", f"{tri.intrinsic_median:,.2f}" if tri.intrinsic_median else "—")
-c3.metric("Relative median", f"{tri.relative_median:,.2f}" if tri.relative_median else "—")
+c1.metric("Market price", f"{price:,.2f}" if price else "—", help=txt.M_PRICE)
+c2.metric("Intrinsic median", f"{tri.intrinsic_median:,.2f}" if tri.intrinsic_median else "—", help=txt.M_INTRINSIC)
+c3.metric("Relative median", f"{tri.relative_median:,.2f}" if tri.relative_median else "—", help=txt.M_RELATIVE)
 c4.metric("Margin of safety", f"{tri.margin_of_safety:.1%}" if tri.margin_of_safety is not None else "—",
-          help="(intrinsic median − price) / intrinsic. Positive = price below value.")
+          help=txt.M_MOS)
 
 tab_summary, tab_sens, tab_mc, tab_report = st.tabs(
     ["Summary", "Sensitivity & scenarios", "Monte Carlo", "Full report"]
@@ -149,6 +161,10 @@ tab_summary, tab_sens, tab_mc, tab_report = st.tabs(
 
 # --------------------------------------------------------------------------- summary
 with tab_summary:
+    st.caption("Each method estimates value per share a different way. "
+               "The red dashed line is the current market price.")
+    with st.expander("ℹ️ What do FCFF, FCFE, DDM and the relative multiples mean?"):
+        st.markdown(txt.METHODS)
     est_df = pd.DataFrame([
         {"method": e.method, "kind": e.category,
          "value / share": e.value_per_share, "upside vs price": e.upside_vs_price}
@@ -165,24 +181,26 @@ with tab_summary:
         chart = chart + alt.Chart(pd.DataFrame({"price": [price]})).mark_rule(
             color="red", strokeDash=[4, 4]).encode(x="price:Q")
     st.altair_chart(chart, width="stretch")
-    st.caption("Red dashed line = current market price.")
     st.dataframe(
         est_df, hide_index=True, width="stretch",
         column_config={
-            "value / share": st.column_config.NumberColumn(format="%.2f"),
-            "upside vs price": st.column_config.NumberColumn(format="percent"),
+            "value / share": st.column_config.NumberColumn(format="%.2f", help="Estimated value of one share by this method."),
+            "upside vs price": st.column_config.NumberColumn(format="percent", help=txt.UPSIDE),
         },
     )
     if implied:
         st.info(
             f"**Reverse DCF —** the current price implies a high-growth-phase rate of "
             f"**{implied.implied_phase_growth:.1%}**, vs your assumed **{high_growth:.1%}**."
-            + (f"  _{implied.note}_" if implied.note else "")
+            + (f"  _{implied.note}_" if implied.note else ""),
+            icon="🔎",
         )
+        st.caption(txt.REVERSE_DCF)
 
 # ------------------------------------------------------------ sensitivity & scenarios
 with tab_sens:
     st.markdown("**Sensitivity — one input at a time (FCFF value / share)**")
+    st.caption(txt.SENSITIVITY)
     sdf = pd.DataFrame([{"input": b.input, "value @ low": b.low_value,
                          "value @ high": b.high_value, "swing": b.swing} for b in bars])
     st.altair_chart(
@@ -196,6 +214,7 @@ with tab_sens:
                  column_config={c: st.column_config.NumberColumn(format="%.2f")
                                 for c in ("value @ low", "value @ high", "swing")})
     st.markdown("**Scenarios (FCFF)**")
+    st.caption(txt.SCENARIOS)
     scen_df = pd.DataFrame([{"scenario": s.name, "value / share": s.value_per_share,
                              "discount": s.discount_rate, "stable g": s.stable_growth_rate,
                              "phase g": s.phase_growth} for s in scenarios])
@@ -208,8 +227,8 @@ with tab_sens:
 
 # --------------------------------------------------------------------------- monte carlo
 with tab_mc:
-    st.caption("Randomizes WACC, stable growth, phase growth and tax around your assumptions.")
-    mc_n = st.slider("Iterations", 500, 5000, 2000, 500)
+    st.caption(txt.MONTE_CARLO)
+    mc_n = st.slider("Iterations", 500, 5000, 2000, 500, help=txt.MC_ITER)
     if st.button("Run Monte Carlo", type="primary"):
         try:
             mc = monte_carlo(company, assumptions, n=mc_n, seed=0, keep_samples=True)
@@ -224,17 +243,24 @@ with tab_mc:
                     color="red", strokeDash=[4, 4]).encode(x="price:Q")
             st.altair_chart(hist, width="stretch")
             m1, m2, m3 = st.columns(3)
-            m1.metric("Median value", f"{mc.median:,.2f}")
-            m2.metric("90% range", f"{mc.p5:,.0f} – {mc.p95:,.0f}")
+            m1.metric("Median value", f"{mc.median:,.2f}",
+                      help="The middle outcome across all simulations.")
+            m2.metric("90% range", f"{mc.p5:,.0f} – {mc.p95:,.0f}",
+                      help="5th to 95th percentile — 90% of simulations land in this band.")
             m3.metric("P(value > price)",
-                      f"{mc.prob_value_above_price:.0%}" if mc.prob_value_above_price is not None else "—")
+                      f"{mc.prob_value_above_price:.0%}" if mc.prob_value_above_price is not None else "—",
+                      help="Share of simulations in which the stock looks undervalued.")
 
 # --------------------------------------------------------------------------- full report
 with tab_report:
-    st.caption("Generate the complete auditable markdown report (assumptions, all estimates, "
-               "sensitivity, scenarios, Monte Carlo, reverse-DCF, warnings).")
+    st.caption("Generate the complete, auditable markdown report — every assumption, all "
+               "estimates, sensitivity, scenarios, Monte Carlo, reverse-DCF and warnings.")
     if st.button("Build full report"):
         report_md = render_report(company, assumptions, peer_companies, mc_n=2000, seed=0)
         st.download_button("⬇️ Download report (.md)", report_md,
                            file_name=f"{ticker}_valuation.md", mime="text/markdown")
         st.markdown(report_md)
+
+# --------------------------------------------------------------------------- glossary
+with st.expander("📚 Glossary — plain-English definitions"):
+    st.markdown(txt.GLOSSARY)
