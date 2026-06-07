@@ -8,7 +8,6 @@ plain-English explanations live in help_text.py.
 """
 from __future__ import annotations
 
-import importlib
 import sys
 from pathlib import Path
 
@@ -17,16 +16,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Streamlit Community Cloud hot-reloads only the main script across an auto-redeploy and
+# keeps OLD copies of imported modules in memory — so a newly-added method/constant would
+# raise AttributeError until a manual reboot. Purge our own modules so every run re-imports
+# the current code from disk (cheap: pandas/numpy/streamlit etc. are left untouched).
+for _stale in [
+    m for m in sys.modules
+    if m == "help_text" or m == "valuation_engine" or m.startswith("valuation_engine.")
+]:
+    del sys.modules[_stale]
+
 import altair as alt  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 import help_text as txt  # noqa: E402
-
-# Streamlit Cloud can keep an older copy of an imported module across a redeploy, so a
-# newly-added constant would raise AttributeError. Reloading guarantees edits take effect.
-importlib.reload(txt)
-
 from valuation_engine.data import FixtureProvider, YFinanceProvider  # noqa: E402
 from valuation_engine.engines import baseline_assumptions  # noqa: E402
 from valuation_engine.inputs.market_data import (  # noqa: E402
