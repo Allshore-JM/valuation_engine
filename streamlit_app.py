@@ -27,9 +27,12 @@ import help_text as txt  # noqa: E402
 # newly-added constant would raise AttributeError. Reloading guarantees edits take effect.
 importlib.reload(txt)
 
-from valuation_engine.config import all_staleness_warnings  # noqa: E402
 from valuation_engine.data import FixtureProvider, YFinanceProvider  # noqa: E402
 from valuation_engine.engines import baseline_assumptions  # noqa: E402
+from valuation_engine.inputs.market_data import (  # noqa: E402
+    live_equity_risk_premium,
+    live_risk_free_rate,
+)
 from valuation_engine.reconcile import (  # noqa: E402
     implied_growth,
     monte_carlo,
@@ -50,15 +53,38 @@ DEFAULT_PEERS = {"AAPL": ["MSFT", "NVDA", "ORCL", "CRM", "AVGO"],
 
 @st.cache_data(show_spinner="Loading company data…")
 def load_data(source: str, ticker: str, peers: tuple[str, ...]):
-    provider = FixtureProvider() if source == OFFLINE else YFinanceProvider()
+    if source == OFFLINE:
+        provider = FixtureProvider()
+        rf = erp = None  # offline: use the static config defaults
+    else:
+        provider = YFinanceProvider()
+        rf = live_risk_free_rate()                       # live 10-yr Treasury yield
+        erp = live_equity_risk_premium(rf) if rf is not None else None
     company = provider.get_company(ticker)
     peer_companies = provider.get_peers(list(peers)) if peers else None
-    return company, peer_companies, baseline_assumptions(company)
+    base = baseline_assumptions(company, rf=rf, erp=erp)
+    return company, peer_companies, base, rf, erp
 
 
 @st.cache_data(show_spinner=False)
 def fixture_tickers() -> list[str]:
     return FixtureProvider().available()
+
+
+@st.cache_data(show_spinner="Searching…")
+def search_tickers(query: str) -> list[tuple[str, str]]:
+    return YFinanceProvider().search(query)
+
+
+def live_ticker_search() -> str:
+    """Search-as-you-type ticker picker (Live mode). Returns the chosen symbol."""
+    query = st.text_input("Search company or ticker", value="AAPL", help=txt.TICKER_SEARCH)
+    matches = search_tickers(query) if query else []
+    if matches:
+        symbol_by_label = {label: sym for sym, label in matches}
+        chosen = st.selectbox("Matches", list(symbol_by_label), help="Pick the company you meant.")
+        return symbol_by_label[chosen]
+    return (query or "").strip().upper()  # no matches / search down: use the raw input
 
 
 def _suggest_peers(source: str, ticker: str) -> list[str]:
@@ -113,8 +139,6 @@ st.warning(
 )
 with st.expander("📖 **New here? How this tool works — start here**", expanded=False):
     st.markdown(txt.INTRO)
-for _w in all_staleness_warnings():
-    st.info(_w, icon="🕓")
 
 # --------------------------------------------------------------------- sidebar: inputs
 with st.sidebar:
@@ -125,14 +149,14 @@ with st.sidebar:
         ticker = st.selectbox("Ticker", [t for t in ("AAPL", "KO") if t in available] or available,
                               help=txt.TICKER)
     else:
-        ticker = (st.text_input("Ticker", value="AAPL", help=txt.TICKER) or "").strip().upper()
+        ticker = live_ticker_search()
     peers = peer_selector(source, ticker, available) if ticker else []
 
 if not ticker:
     st.stop()
 
 try:
-    company, peer_companies, base = load_data(source, ticker, tuple(peers))
+    company, peer_companies, base, live_rf, _live_erp = load_data(source, ticker, tuple(peers))
 except Exception as exc:  # noqa: BLE001
     st.error(f"Couldn't load **{ticker}**: {exc}")
     st.stop()
@@ -157,7 +181,8 @@ with st.sidebar:
         stable_roc = st.slider("Stable return on capital", 0.03, 0.30,
                                float(base.stable_return_on_capital or base.cost_of_capital or 0.09),
                                0.005, format="%.3f", help=txt.STABLE_ROC)
-        st.caption("These three feed the suggested WACC and cost of equity above:")
+        _src = "live: 10-yr Treasury + implied premium" if live_rf is not None else "static config defaults"
+        st.caption(f"Feed the suggested WACC / cost of equity ({_src}):")
         st.metric("Risk-free rate", f"{rf:.2%}", help=txt.RF)
         st.metric("Equity risk premium", f"{float(base.equity_risk_premium or 0):.2%}", help=txt.ERP)
         st.metric("Beta", f"{float(base.beta or 0):.2f}", help=txt.BETA)

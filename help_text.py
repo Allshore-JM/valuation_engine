@@ -50,6 +50,11 @@ TICKER = (
     "In Live mode you can enter any publicly listed company."
 )
 
+TICKER_SEARCH = (
+    "Type a company name or ticker and pick from the matches (e.g. 'berkshire' → BRK-B, "
+    "'coca' → KO). Searches live US-listed equities via Yahoo Finance."
+)
+
 PEERS = (
     "A handful of **similar companies** in the same industry. The relative valuation asks: "
     "given how these peers are priced, what is the target worth? Pick genuinely comparable "

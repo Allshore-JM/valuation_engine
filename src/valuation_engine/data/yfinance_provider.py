@@ -102,6 +102,38 @@ class YFinanceProvider:
                 return peers[:max_peers]
         return []
 
+    def search(self, query: str, *, max_results: int = 8) -> list[tuple[str, str]]:
+        """Search companies/tickers by name or symbol -> [(symbol, 'SYM — Name (Exchange)')].
+
+        Backed by yfinance's Yahoo search. Equities only, de-duplicated. Returns [] on a
+        too-short query or any failure.
+        """
+        query = (query or "").strip()
+        if len(query) < 2:
+            return []
+        try:
+            import yfinance as yf
+
+            quotes = yf.Search(query).quotes
+        except Exception:  # noqa: BLE001
+            return []
+        out: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for q in quotes:
+            if q.get("quoteType") != "EQUITY":
+                continue
+            symbol = q.get("symbol")
+            if not symbol or symbol in seen:
+                continue
+            seen.add(symbol)
+            name = q.get("shortname") or q.get("longname") or ""
+            exch = q.get("exchDisp") or ""
+            label = f"{symbol} — {name}" + (f" ({exch})" if exch else "")
+            out.append((symbol, label))
+            if len(out) >= max_results:
+                break
+        return out
+
     def manual_override(self, field: str, value: object) -> None:
         self._overrides[field] = value
 
