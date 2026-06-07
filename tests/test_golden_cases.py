@@ -12,8 +12,8 @@ from valuation_engine.pipeline import run_valuation
 
 # value per share from the deterministic baseline on the committed fixtures
 GOLDEN = {
-    "AAPL": {"fcff": 139.62, "fcfe": 144.82},
-    "KO": {"fcff": 62.35, "fcfe": 66.28},
+    "AAPL": {"fcff": 145.09, "fcfe": 150.18},
+    "KO": {"fcff": 64.19, "fcfe": 67.93},
 }
 
 

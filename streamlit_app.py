@@ -8,6 +8,7 @@ plain-English explanations live in help_text.py.
 """
 from __future__ import annotations
 
+import importlib
 import sys
 from pathlib import Path
 
@@ -21,6 +22,11 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 import help_text as txt  # noqa: E402
+
+# Streamlit Cloud can keep an older copy of an imported module across a redeploy, so a
+# newly-added constant would raise AttributeError. Reloading guarantees edits take effect.
+importlib.reload(txt)
+
 from valuation_engine.config import all_staleness_warnings  # noqa: E402
 from valuation_engine.data import FixtureProvider, YFinanceProvider  # noqa: E402
 from valuation_engine.engines import baseline_assumptions  # noqa: E402
@@ -68,7 +74,7 @@ def _suggest_peers(source: str, ticker: str) -> list[str]:
 def peer_selector(source: str, ticker: str, available: list[str]) -> list[str]:
     """Editable peer list with an 'Auto-suggest peers' button. Returns the chosen tickers."""
     state_key = f"peers::{source}::{ticker}"
-    suggest_clicked = st.button("🔮 Auto-suggest peers", help=txt.AUTO_PEERS, width="stretch")
+    suggest_clicked = st.button("🔮 Auto-suggest peers", help=txt.AUTO_PEERS, use_container_width=True)
 
     if source == OFFLINE:
         options = [t for t in available if t != ticker]
@@ -216,9 +222,9 @@ with tab_summary:
     if price:
         chart = chart + alt.Chart(pd.DataFrame({"price": [price]})).mark_rule(
             color="red", strokeDash=[4, 4]).encode(x="price:Q")
-    st.altair_chart(chart, width="stretch")
+    st.altair_chart(chart, use_container_width=True)
     st.dataframe(
-        est_df, hide_index=True, width="stretch",
+        est_df, hide_index=True, use_container_width=True,
         column_config={
             "value / share": st.column_config.NumberColumn(format="%.2f", help="Estimated value of one share by this method."),
             "upside vs price": st.column_config.NumberColumn(format="percent", help=txt.UPSIDE),
@@ -244,9 +250,9 @@ with tab_sens:
             x=alt.X("swing:Q", title="value swing"),
             y=alt.Y("input:N", sort="-x"),
             tooltip=[c for c in sdf.columns]),
-        width="stretch",
+        use_container_width=True,
     )
-    st.dataframe(sdf, hide_index=True, width="stretch",
+    st.dataframe(sdf, hide_index=True, use_container_width=True,
                  column_config={c: st.column_config.NumberColumn(format="%.2f")
                                 for c in ("value @ low", "value @ high", "swing")})
     st.markdown("**Scenarios (FCFF)**")
@@ -254,7 +260,7 @@ with tab_sens:
     scen_df = pd.DataFrame([{"scenario": s.name, "value / share": s.value_per_share,
                              "discount": s.discount_rate, "stable g": s.stable_growth_rate,
                              "phase g": s.phase_growth} for s in scenarios])
-    st.dataframe(scen_df, hide_index=True, width="stretch", column_config={
+    st.dataframe(scen_df, hide_index=True, use_container_width=True, column_config={
         "value / share": st.column_config.NumberColumn(format="%.2f"),
         "discount": st.column_config.NumberColumn(format="percent"),
         "stable g": st.column_config.NumberColumn(format="percent"),
@@ -277,7 +283,7 @@ with tab_mc:
             if price:
                 hist = hist + alt.Chart(pd.DataFrame({"price": [price]})).mark_rule(
                     color="red", strokeDash=[4, 4]).encode(x="price:Q")
-            st.altair_chart(hist, width="stretch")
+            st.altair_chart(hist, use_container_width=True)
             m1, m2, m3 = st.columns(3)
             m1.metric("Median value", f"{mc.median:,.2f}",
                       help="The middle outcome across all simulations.")

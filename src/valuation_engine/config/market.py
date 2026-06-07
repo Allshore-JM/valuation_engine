@@ -48,14 +48,19 @@ RISK_FREE_RATE = SourcedDefault(
 )
 
 # Implied equity risk premium for the US market (S&P 500).
+# Damodaran's start-of-2026 implied ERP = 4.23% (S&P 500 at 6845.5), ~ the 1960-2025 average.
 EQUITY_RISK_PREMIUM = SourcedDefault(
-    value=0.045,
+    value=0.0423,
     provenance=Provenance(
         as_of=date(2026, 1, 1),
-        source="Damodaran implied US equity risk premium",
-        source_url="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html",
+        source="Damodaran implied US equity risk premium (start-of-2026 = 4.23%)",
+        source_url="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html",
         max_age_days=30,
-        note="Placeholder; Damodaran posts a fresh implied ERP monthly and at year-start.",
+        note=(
+            "Maintained annual series (histimpl.html / histimpl.xls). Damodaran also posts a "
+            "fresh implied ERP monthly on his Substack (aswathdamodaran.substack.com, 'Data "
+            "Update' posts). NOTE: the older implpr.html page is frozen at ~2016 — use histimpl."
+        ),
     ),
 )
 
