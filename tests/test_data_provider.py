@@ -106,6 +106,19 @@ def test_missing_fixture_raises():
         FixtureProvider().get_company("NOPE")
 
 
+def test_suggest_peers_offline(provider):
+    peers = provider.suggest_peers("AAPL")
+    assert "MSFT" in peers and "AAPL" not in peers
+    assert all((provider.fixtures_dir / f"{p}.json").exists() for p in peers)
+    assert provider.suggest_peers("UNKNOWN_TICKER") == []
+
+
+@pytest.mark.integration
+def test_live_suggest_peers(tmp_path):
+    peers = YFinanceProvider(cache_dir=tmp_path).suggest_peers("AAPL")
+    assert peers and "AAPL" not in peers  # non-empty, never includes the target itself
+
+
 @pytest.mark.integration
 def test_live_yfinance_fetch_smoke(tmp_path):
     """Live network smoke test. Run with: pytest -m integration."""

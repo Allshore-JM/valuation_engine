@@ -36,6 +36,13 @@ class DataProvider(Protocol):
         """Return Companies for a list of peer tickers (for the relative engine)."""
         ...
 
+    def suggest_peers(self, ticker: str) -> list[str]:
+        """Best-effort list of comparable peer tickers for the relative valuation.
+
+        May return an empty list when no good comparables can be determined.
+        """
+        ...
+
     def manual_override(self, field: str, value: object) -> None:
         """Pin ``field`` to ``value``, overriding whatever the source returns."""
         ...

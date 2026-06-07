@@ -41,6 +41,15 @@ class FixtureProvider:
     def get_peers(self, tickers: list[str]) -> list[Company]:
         return [self.get_company(t) for t in tickers]
 
+    def suggest_peers(self, ticker: str, *, max_peers: int = 6) -> list[str]:
+        """Curated peers for the bundled fixtures (offline — only returns tickers we have)."""
+        curated = {
+            "AAPL": ["MSFT", "NVDA", "ORCL", "CRM", "AVGO"],
+            "KO": ["PEP", "MNST", "KDP", "STZ"],
+        }
+        wanted = curated.get(ticker.upper(), [])
+        return [p for p in wanted if (self.fixtures_dir / f"{p}.json").exists()][:max_peers]
+
     def manual_override(self, field: str, value: object) -> None:
         self._overrides[field] = value
 

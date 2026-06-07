@@ -57,6 +57,51 @@ class YFinanceProvider:
     def get_peers(self, tickers: list[str]) -> list[Company]:
         return [self.get_company(t) for t in tickers]
 
+    def suggest_peers(self, ticker: str, *, max_peers: int = 6) -> list[str]:
+        """Comparable tickers from the firm's sector (size-ranked), industry as fallback.
+
+        Uses yfinance's Sector/Industry constituent lists. The sector is preferred because
+        Yahoo's industry buckets are often too narrow (e.g. Apple's "consumer-electronics"
+        is dominated by Apple plus tiny names). Candidates are ranked by closeness in market
+        weight to the target, so they are size-comparable. Returns [] if nothing usable.
+        """
+        import yfinance as yf
+
+        self._throttle()
+        sym = ticker.upper()
+        try:
+            info = dict(yf.Ticker(ticker).info)
+        except Exception:  # noqa: BLE001
+            info = {}
+
+        for key, cls in (
+            (info.get("sectorKey"), getattr(yf, "Sector", None)),
+            (info.get("industryKey"), getattr(yf, "Industry", None)),
+        ):
+            if not key or cls is None:
+                continue
+            try:
+                df = cls(key).top_companies
+            except Exception:  # noqa: BLE001
+                continue
+            if df is None or not hasattr(df, "index") or len(df) == 0:
+                continue
+            symbols = [str(s).upper() for s in df.index]
+            weights: dict[str, float] = {}
+            if "market weight" in getattr(df, "columns", []):
+                for s, w in df["market weight"].items():
+                    try:
+                        weights[str(s).upper()] = float(w)
+                    except (TypeError, ValueError):
+                        pass
+            peers = [s for s in symbols if s != sym]
+            if weights and sym in weights:  # rank by closeness in size to the target
+                target_weight = weights[sym]
+                peers.sort(key=lambda s: abs(weights.get(s, 0.0) - target_weight))
+            if peers:
+                return peers[:max_peers]
+        return []
+
     def manual_override(self, field: str, value: object) -> None:
         self._overrides[field] = value
 

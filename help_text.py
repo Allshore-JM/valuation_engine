@@ -56,6 +56,13 @@ PEERS = (
     "firms — comparing a software maker to an oil producer won't tell you much."
 )
 
+AUTO_PEERS = (
+    "Fill the list automatically with the **largest, size-comparable companies in the same "
+    "sector** (e.g. Apple → Microsoft, Nvidia, Broadcom…). It's a *starting point* — prune or "
+    "add names afterward. Works best for US large caps, and needs **Live** data for tickers "
+    "beyond the bundled examples."
+)
+
 WACC = """\
 **Weighted Average Cost of Capital** — the blended yearly return the company must earn to
 keep *all* its funders (shareholders **and** lenders) satisfied.

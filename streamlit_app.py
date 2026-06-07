@@ -55,6 +55,46 @@ def fixture_tickers() -> list[str]:
     return FixtureProvider().available()
 
 
+def _suggest_peers(source: str, ticker: str) -> list[str]:
+    provider = FixtureProvider() if source == OFFLINE else YFinanceProvider()
+    try:
+        with st.spinner("Finding comparable companies…"):
+            return provider.suggest_peers(ticker)
+    except Exception as exc:  # noqa: BLE001
+        st.warning(f"Auto-suggest failed: {exc}")
+        return []
+
+
+def peer_selector(source: str, ticker: str, available: list[str]) -> list[str]:
+    """Editable peer list with an 'Auto-suggest peers' button. Returns the chosen tickers."""
+    state_key = f"peers::{source}::{ticker}"
+    suggest_clicked = st.button("🔮 Auto-suggest peers", help=txt.AUTO_PEERS, width="stretch")
+
+    if source == OFFLINE:
+        options = [t for t in available if t != ticker]
+        if state_key not in st.session_state:
+            st.session_state[state_key] = [p for p in DEFAULT_PEERS.get(ticker, []) if p in options]
+        if suggest_clicked:
+            picks = [s for s in _suggest_peers(source, ticker) if s in options]
+            if picks:
+                st.session_state[state_key] = picks
+            else:
+                st.info("No peers with bundled data — switch to **Live** to value other tickers.")
+        return st.multiselect("Peers (relative valuation)", options, key=state_key, help=txt.PEERS)
+
+    # live mode — free-text tickers
+    if state_key not in st.session_state:
+        st.session_state[state_key] = ",".join(DEFAULT_PEERS.get(ticker, []))
+    if suggest_clicked:
+        picks = _suggest_peers(source, ticker)
+        if picks:
+            st.session_state[state_key] = ",".join(picks)
+        else:
+            st.warning("Couldn't find peers automatically — enter some manually.")
+    raw = st.text_input("Peers (comma-separated)", key=state_key, help=txt.PEERS)
+    return [p.strip().upper() for p in raw.split(",") if p.strip()]
+
+
 # ----------------------------------------------------------------------------- header
 st.title("📈 Equity Valuation Engine")
 st.caption(
@@ -74,17 +114,13 @@ for _w in all_staleness_warnings():
 with st.sidebar:
     st.header("1 · Company")
     source = st.radio("Data source", [OFFLINE, LIVE], index=0, help=txt.DATA_SOURCE)
+    available = fixture_tickers() if source == OFFLINE else []
     if source == OFFLINE:
-        available = fixture_tickers()
         ticker = st.selectbox("Ticker", [t for t in ("AAPL", "KO") if t in available] or available,
                               help=txt.TICKER)
-        peer_opts = [t for t in available if t != ticker]
-        peers = st.multiselect("Peers (for relative valuation)", peer_opts, help=txt.PEERS,
-                               default=[p for p in DEFAULT_PEERS.get(ticker, []) if p in peer_opts])
     else:
         ticker = (st.text_input("Ticker", value="AAPL", help=txt.TICKER) or "").strip().upper()
-        peers_raw = st.text_input("Peers (comma-separated)", value="MSFT,NVDA,ORCL,CRM,AVGO", help=txt.PEERS)
-        peers = [p.strip().upper() for p in peers_raw.split(",") if p.strip()]
+    peers = peer_selector(source, ticker, available) if ticker else []
 
 if not ticker:
     st.stop()
